@@ -8,6 +8,7 @@
 #include <vector>
 #include <memory>
 #include <istream>
+#include <sstream>
 #include <queue>
 #include "utils.h"
 
@@ -80,10 +81,65 @@ public:
 	IntervalDimensionalTreeNode(const Ivals &arr);
 	virtual ~IntervalDimensionalTreeNode();
 	//function for intersection
-	typename Ivals Find(const Point & point, bool sort);
+	typename Ivals Find(const Point & point, char sort);
 
 	//SERIALIZATION BLOCK AND PARSE BLOCK
 
+
+	static typename IntervalDimensionalTreeNode<T,N>::Point ParsePoint(std::istream &istr) {
+		const char valid_chars[] = { '(',0,',', ')' }; 
+		int scan_mode = 0; // 0 - look for point start, 1 - parsing coordinate, 2 - look for coordinate delimeter, 3 - look for point end
+		char ch;
+		T xc;
+		size_t n = 0;
+		Point p;
+		bool is_ready = false;
+		while (!istr.eof()&&!is_ready) {
+			//skip space or any char (only if mode == 0)
+			do
+				ch = istr.get();
+			while (!istr.eof()  && isspace(ch));
+			//skipped, stopped at first non-space char or '[' if mode is 0
+			//decide what to do
+			if (istr.eof())
+				break;
+
+			if (scan_mode == 1) { // if mode is 1 - parse type and put into array
+				istr.unget(); //return char back
+				istr >> xc; //parse coordinate
+				p[n++] = xc; //set coordinate for point
+				scan_mode = 2; //set scan mode to find delimeter
+				if (n == N)
+					scan_mode = 3; //point is ready - close it
+			}
+			else {
+				//if met invalid char
+				if (ch != valid_chars[scan_mode])
+					throw std::exception(
+						("Syntax Error [IntervalTree::ParsePoint]: Found unexpected literal at position " +
+							std::to_string(istr.tellg())).c_str());
+				//if scan in "look for coordinate delimeter"-mode - set back into point parsing mode
+				if (scan_mode == 2)
+					scan_mode = 1;
+				else {
+					scan_mode = (scan_mode + 1) % 4;
+					is_ready = !scan_mode;
+				}
+			}
+
+		}
+		if (n != N || !is_ready)
+			throw std::exception("Syntax Error [IntervalTree::ParsePoint]: Unfinished point or bad point syntax.");
+
+		return p;
+	}
+
+
+	static typename IntervalDimensionalTreeNode<T,N>::Point ParsePoint(const char* str) {
+		return ParsePoint(std::stringstream(str));
+	}
+
+	//TODO: Use ParsePoint inside Parse
 	static IntervalDimensionalTreeNode Parse(std::istream &istr);
 };
 

@@ -188,7 +188,7 @@ IntervalDimensionalTreeNode<T,N>::~IntervalDimensionalTreeNode()
 //T(N) = T( O(M*log(M)) )+T( O((log(N)+M)^d) )
 //O(N*log(N))
 template<typename T, size_t N>
-typename IntervalDimensionalTreeNode<T, N>::Ivals IntervalDimensionalTreeNode<T,N>::Find(const Point & point, bool sort)
+typename IntervalDimensionalTreeNode<T, N>::Ivals IntervalDimensionalTreeNode<T,N>::Find(const Point & point, char sort)
 {
 	Ivals candidates; 
 	Ivals temp_candidates;
@@ -254,15 +254,22 @@ typename IntervalDimensionalTreeNode<T, N>::Ivals IntervalDimensionalTreeNode<T,
 			p = nullptr;
 		candidates.insert(candidates.begin(), temp_candidates.begin(), temp_candidates.end());
 		temp_candidates.clear();
+		first_filter_performed = false;
 	} while (!point_equals_median&&p);
 	
 
 	//O(M*log(M))
-	if(sort)
-		std::sort(
-			candidates.begin(), candidates.end(), 
-			[this](const Ival& a, const Ival& b) { return SecureCall(a, Weight) < SecureCall(b, Weight); }
-		);
+	if (sort) {
+		if (sort == 1)
+			std::sort(
+				candidates.begin(), candidates.end(),
+				[this](const Ival& a, const Ival& b) { return SecureCall(a, Weight) < SecureCall(b, Weight); } );
+		else 
+			std::sort(
+				candidates.rbegin(),candidates.rend(),
+				[this](const Ival& a, const Ival& b) { return SecureCall(a, Weight) < SecureCall(b, Weight); } 	);
+	}
+		
 
 	return candidates;
 }
@@ -289,7 +296,7 @@ IntervalDimensionalTreeNode<T,N> IntervalDimensionalTreeNode<T, N>::Parse(std::i
 	// 6 - closing interval
 	int scan_mode = 0;
 	char ch;
-	char valid_chars[] = { '[','(',0,',', ')', ',', ']' };
+	const char valid_chars[] = { '[','(',0,',', ')', ',', ']' };
 	T xc;
 	size_t n = 0;
 	bool left = true;
@@ -300,7 +307,7 @@ IntervalDimensionalTreeNode<T,N> IntervalDimensionalTreeNode<T, N>::Parse(std::i
 		//skip space or any char (only if mode == 0)
 		do
 			ch = istr.get();
-		while (!istr.eof() || isspace(ch) || (scan_mode == 0 && ch != valid_chars[0]));
+		while ( !istr.eof() && ( isspace(ch) || (scan_mode == 0 && ch != valid_chars[0]) ) );
 		//skipped, stopped at first non-space char or '[' if mode is 0
 		//decide what to do
 		if (istr.eof())
@@ -335,6 +342,10 @@ IntervalDimensionalTreeNode<T,N> IntervalDimensionalTreeNode<T, N>::Parse(std::i
 			else if (scan_mode == 4 && left) {
 				//if interval is ready - put into intervals and close it
 				scan_mode = 6;
+				//check and swap coordinates
+				for (size_t di = 0; di < N; ++di)
+					if (i.first[di]>i.second[di])
+						std::swap(i.first[di], i.second[di]);
 				is.push_back(i);
 			}
 			else if (scan_mode == 5)

@@ -41,44 +41,87 @@ int main(int argc, char** argv) {
 				Option( "p","point", nullptr,
 						"Value of the point-of-interest in one-dimensional space", 
 						true, false		),
+				Option(	"s","sort", "0",
+						"Indicates whether it is necessary to perform sorting on reported intervals. 0 - not needed, 1 - ascending sort, 2 - descending sort",
+						true, false),
 				Option( "o","output_file", nullptr, 
 						"Output file that holds a list of all intervals with that point. If this option is not specified,"\
 						"standard output stream is selected for output",
 						false, false	)
 			},"Returns all intervals which intersect this point.") 
 	};
-	CommandLine cmdline = CommandLine(commands,0,"This program is a solution for problem $num: \'Geolocation in one-dimensional space\'");
+	CommandLine cmdline = CommandLine(
+		commands,0,
+		"This program is a solution for problem 17: \'Geolocation in one-dimensional space\'."\
+		"\r\nThis program actually supports solutions for geo location problem in multi-dimensional space,"\
+		"but needs to be recompiled with different dimensional parameter."\
+		"\r\nMore info and source code at: https://github.com/FakeEmperor/IntervalTree" );
 	//SelfTestResult st;
 	try {
+
 		cmdline.SelfTest();
 	}
 	catch (std::exception e) {
-		std::cerr << "Self test failed: " << std::endl << e.what();
+		std::cerr << "[!] Self test failed: " << std::endl << e.what();
 	}
 
-	cmdline.Parse(argc, argv);
-	if (cmdline.ParseResult() != ParsingResult::CLPR_OK) {
-		std::cerr << "[!] Failed to parse arguments: " << GetStringParsingResult(cmdline.ParseResult()) << std::endl << std::endl;
-		std::cerr << cmdline.Help();
+	try {
+		cmdline.Parse(argc, argv);
+		if (cmdline.ParseResult() != ParsingResult::CLPR_OK) {
+			std::cerr << "[!] Failed to parse arguments: " << GetStringParsingResult(cmdline.ParseResult())
+				<< std::endl
+				<< std::endl
+				<< cmdline.Help();
+		}
+		else {
+			std::cout << "[+] Parsing finished! " << std::endl
+				<< "[*] Executing command..." << std::endl;
+			const Command& acmd = cmdline.ParsedCommand();
+			switch (acmd.Id()) {
+			case 2:
+			{
+				//MAIN CODE IS HERE
+				const char *oname = acmd["output_file"].StoredValue(), *iname = acmd["input_file"].StoredValue();
+				int sort = std::stoi(!acmd["sort"].StoredValue()?acmd["sort"].DefaultValue():acmd["sort"].StoredValue());
+				IntervalDimensionalTreeNode<int, 1>::Point p = IntervalDimensionalTreeNode<int, 1>::ParsePoint(acmd["point"].StoredValue());
+				if (sort > 2 || sort < 0)
+					throw std::exception("Sort parameter invalid for command \'locate\'. Check help for more info.");
+				if (oname)
+					ofs.open(oname);
+				if (!iname || !strlen(iname))
+					throw std::exception("Input file path is invalid");
+				else
+					ifs.open(iname);
+
+				auto itree = IntervalDimensionalTreeNode<int, 1>::Parse(ifs);
+				std::shared_ptr<IntervalDimensionalTreeNode<int, 1>> itreep(&itree, [](IntervalDimensionalTreeNode<int, 1> *p){ /* do nothing in destructor*/ }); //warp into this
+				IntervalDimensionalTreeNode<int, 1>::Ivals intervals = itreep->Find(p, sort);
+				for (auto it = intervals.begin(), s = intervals.end(); it != s; ++it)
+					(oname ? ofs : std::cout) << "Interval: " << "[ (" << it->first[0] << ") , (" << it->second[0] << ") ]" << std::endl;
+
+				
+			}
+				break;
+			default:
+				throw std::exception("Sorry, command is not supported at the moment.");
+				break;
+			}
+		}
 	}
-	else {
-		std::cout << "[+]\tParsing finished! " << std::endl << "[*]\tValidating parameters..." << std::endl;
+	catch (std::exception e) {
+		std::cerr	<< "[!] Exception occured during program execution: " << std::endl 
+					<< "\t" <<  e.what() <<std::endl;
 	}
-	//TEST CODE
-	const char* name = cmdline["locate"]["output_file"].DefaultValue();
-	if(name)
-		ofs.open(name);
+	
+	std::cout << "[OK] Finished! Have a good day, sir!" << std::endl;
+	
 
-	std::shared_ptr<IntervalDimensionalTreeNode<int,1>> itree(new IntervalDimensionalTreeNode<int, 1>({ { {0},{3} }, { {1}, {3} }, { {5}, {9} }, { {3}, {4} } }));
 
-	IntervalDimensionalTreeNode<int,1>::Ivals intervals = itree->Find({ 7 },false);
+	
 
-	for (auto it = intervals.begin(), s = intervals.end(); it != s; ++it) {
-		(name ? ofs : std::cout ) << "Interval: " << "[" << it->first[0] << "," << it->second[0] << "]" << std::endl;
-	}
-
+	ifs.close();
 	ofs.close();
-	IntervalDimensionalTreeNode<int, 1>::Parse(std::cin);
+	
 	return 0;
 }
 
